@@ -1,9 +1,9 @@
 # [Title]
 
-**Author:** Patrick Lefler  
-**Published:** 2026-03-03 
-**Project 3:** Project-09
-**Tools:** R | Quarto | Plotly | ggplot2 | kableExtra
+**Author:** Patrick Lefler  </br>
+**Published:** 2026-03-03  </br>
+**Project 3:** Project-09 </br>
+**Tools:** R | `quarto` `bayestestR` `insight` `openintro` `rstanarm`
 
 ---
 
