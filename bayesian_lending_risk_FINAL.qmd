@@ -783,7 +783,7 @@ kbl(tblData) %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-## Imsight & Conclusion
+## Insights & Conclusion
 
 Two lending risk questions, two Bayesian models, one consistent framework:
 
@@ -861,5 +861,5 @@ examples in R and Stan*. Chapman & Hall/CRC.
 
 ---
 
-*Rendered with [Quarto](https://quarto.org/) · Packages: `bayestestR`, `dplyr`,
- `ggplot2`, `insight`, `kableExtra`, `openintro`, `rstanarm` , `scales`, `sessioninfo`, `tidyr`, `tidyverse`*
+*Rendered with [Quarto](https://quarto.org/) · Packages: `bayestestR` `dplyr`
+ `ggplot2` `insight` `kableExtra` `openintro` `rstanarm` `scales` `sessioninfo` `tidyr` `tidyverse`*
