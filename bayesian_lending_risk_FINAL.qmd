@@ -2,21 +2,30 @@
 title: "Bayesian Inference in Lending Risk"
 subtitle: "Estimating Interest Rate Drivers with Posterior Distributions"
 author: "Patrick Lefler"
-abstract: "This project applies Bayesian inference to two lending risk questions — whether debt-to-income ratio drives interest rates and whether homeownership status produces meaningful rate differences — using the `loans_full_schema` dataset from the `openintro` package. Using `rstanarm` to fit the models and `bayestestR` to characterise the resulting posterior distributions, it demonstrates how credible intervals, the Region of Practical Equivalence, and the Probability of Direction together provide a richer and more decision-relevant picture of parameter uncertainty than classical frequentist regression."
-date: "13-March 2026"
+abstract: "Traditional lending risk models rely on frequentist point estimates and p-values to assess borrower risk. This method simplifies parameter uncertainty into a binary decision. It often misses the distributional information that credit decision-makers need. When a pricing committee wonders if the debt-to-income ratio impacts interest rates, a p-value below 0.05 responds to a question that wasn't even asked. It overlooks the more relevant question: how large is the effect, and how confident can we be in that size? </br> </br>
+
+This project reframes two key lending risk questions using a Bayesian approach. It treats parameter uncertainty as an important output, not just a nuisance. Two Bayesian regression models are fitted using the <code>loans_full_schema</code> dataset from the <code>openintro</code> package with <code>rstanarm</code>. The first model estimates the relationship between debt-to-income ratio and interest rate. The second tests if homeownership status creates significant rate differences among borrower segments. </br> </br>
+
+The posterior distributions are characterized with <code> bayestestR</code>, using three diagnostic tools. First, the 89% Highest Density Interval shows parameter-level uncertainty. Second, the Region of Practical Equivalence (ROPE) checks if effects fall within a range that isn’t very important. Third, the Probability of Direction (pd) is a simple tool for measuring directional confidence. These tools replace the single-threshold logic of null hypothesis testing with a more nuanced view of the data. </br> </br>
+
+The results show that Bayesian summaries reveal important distinctions that frequentist outputs miss. The debt-to-income ratio consistently relates positively to interest rates. The width of the credible interval and the partial ROPE overlap show that there's significant uncertainty in the effect size. This nuance is vital for loan pricing functions. Homeownership differences show that a high Probability of Direction can happen even with small effect sizes. This challenges the usual link between statistical significance and actionability."
+
+date: "03-March 2026"
 format:
   html:
     code-fold: true
-    code-tools: false
     code-copy: false
     code-overflow: wrap
+    code-tools: false
+    code-summary: "Display code"
     df-print: kable
     embed-math: true
     embed-resources: true
-    fig-width: 10
-    fig-height: 5
     fig-align: center
+    fig-height: 5
+    fig-width: 10
     highlight-style: arrow
+    lightbox: true
     linkcolor: "#0166CC"
     number-sections: false
     page-layout: full
@@ -26,69 +35,82 @@ format:
     toc-depth: 3
     toc-location: right
     toc-title: "Contents"
+brand: _brand.yml
 execute:
   echo: true
   warning: false
   message: false
-knitr:
-  opts_chunk:
-    comment: "#>"
+
 ---
+
+## Setup
 
 ```{r}
 #| label: setup
-#| include: false
+#| echo: true
 
-library(rstanarm)    # Stan-backed Bayesian regression
 library(bayestestR)  # Posterior description & hypothesis testing
-library(insight)     # Uniform parameter extraction
 library(ggplot2)     # Visualisation
+library(insight)     # Uniform parameter extraction
 library(kableExtra)  # kable table
 library(openintro)   # Source of loans_full_schema
-library(scales)      # decimal formating
+library(rstanarm)    # Stan-backed Bayesian regression
+library(scales)  # decimal formating
+library(sessioninfo) # session information
+library(tidyr)       # Reshaping
 library(tidyverse)   # Data wrangling
 library(dplyr)       # Data wrangling
-library(tidyr)       # Reshaping
 
 # Sandstone-aligned palette
 plot_background   <-"#FEFEFA" # 
-plot_lightgrey <- "#D3D3D3"
-plot_blue <- "#0166CC"
-plot_red <- "#B94A48"
-plot_beige <- "#FFE2C3"
-clr_dark      <- "#2C2C2C"   # near-black
-aesthetic_1   <- "#AA6F73"
-aesthetic_2   <- "#EEA900"
-aesthetic_3.  <- "#F6E0B5"
+plot_blacktext  <- "#2C2C2C" # near-black
+plot_greytext <- "#707073"
+plot_bluetext <- "#000066"
+plot_redtext <- "#800000"
 
-theme_lending <- function() {
-  theme_minimal(base_size = 12) +
-    theme(
-      plot.title       = element_text(size = 13, color = clr_dark),
-      plot.subtitle    = element_text(size = 10, color = "grey45", margin = margin(b = 10)),
-      plot.caption     = element_text(size = 8, color = "grey55", hjust = 0),
-      axis.title       = element_text(size = 10, color = clr_dark),
-      axis.text        = element_text(size = 9, color = "grey35"),
-      panel.grid.minor = element_blank(),
-      panel.grid.major = element_line(color = "#CCCCCC"),
-      plot.background  = element_rect(fill = "#FEFEFA", color = NA),
-      panel.background = element_rect(fill = "#FEFEFA", color = NA),
-      legend.position  = "bottom",
-      legend.title     = element_text(size = 9, face = "bold"),
-      legend.text      = element_text(size = 9)
-    )
-}
+plot_fill_beige <- "#FFE2C3"
+plot_fill_blue <- "#447099"
+plot_fill_brightblue <- "#0A0AFF"
+plot_fill_crimson <- "#B94A48"
+plot_fill_lightgrey <- "#E8E8E8"
+plot_fill_lightblue <- "#BDD7E7"
+plot_fill_red <- "#DC143C"
 
-theme_set(theme_lending())
+blue_shade_1 <- "#EFF3FF"
+blue_shade_2 <- "#BDD7E7"
+blue_shade_3 <- "#6BAED6"
+blue_shade_4 <- "#2171B5"
+
+green_shade_1 <- "#EDF8E9"
+green_shade_2 <- "#BAE4B3"
+green_shade_3 <- "#74C476"
+green_shade_4 <- "#238B45"
+
+grey_shade_1 <- "#F7F7F7"
+grey_shade_2 <- "#CCCCCC"
+grey_shade_3 <- "#969696"
+grey_shade_4 <- "#525252"
+
+red_shade_1 <- "#FEE5D9"
+red_shade_2 <- "#FCAE91"
+red_shade_3 <- "#FB6A4A"
+red_shade_4 <- "#CB181D"
+
+yellow_blue_shade_1 <- "#FFFFCC"
+yellow_blue_shade_2 <- "#C7E9B4"
+yellow_blue_shade_3 <- "#7FCDBB"
+yellow_blue_shade_4 <- "#41B6C4"
+yellow_blue_shade_5 <- "#1D91C0"
+yellow_blue_shade_6 <- "#225EA8"
+yellow_blue_shade_6 <- "#0C2C84"
 
 set.seed(2024)
 options(mc.cores = parallel::detectCores())
 options(scipen=999) ## scientific notional turned off
 ```
 
----
 
-## Motivation and Scope
+## Introduction
 
 Interest rates on personal and consumer loans are not arbitrary — they encode
 a lender's assessment of borrower risk, market conditions, and portfolio
@@ -116,23 +138,21 @@ and centre, construct credible intervals, and apply formal significance
 tests — using `rstanarm` to fit the models and `bayestestR` to interpret them.
 
 
-## Packages and Data
-
-### Libraries
 ```{r}
-#| label: libraries
-#
-
-library(bayestestR)  # Posterior description & hypothesis testing
-library(ggplot2)     # Visualisation
-library(insight)     # Uniform parameter extraction
-library(kableExtra)  # kable table 
-library(openintro)   # Source of loans_full_schema
-library(rstanarm)    # Stan-backed Bayesian regression
-library(scales)      # decimal formating
-library(tidyverse)   # Data wrangling
-library(dplyr)       # Data wrangling
-library(tidyr)       # Reshaping
+# #| label: libraries
+# #| echo: false
+# 
+# 
+# library(bayestestR)  # Posterior description & hypothesis testing
+# library(ggplot2)     # Visualisation
+# library(insight)     # Uniform parameter extraction
+# library(kableExtra)  # kable table 
+# library(openintro)   # Source of loans_full_schema
+# library(rstanarm)    # Stan-backed Bayesian regression
+# library(scales)      # decimal formating
+# library(tidyverse)   # Data wrangling
+# library(dplyr)       # Data wrangling
+# library(tidyr)       # Reshaping
 ```
 
 ### Dataset Overview
@@ -258,7 +278,6 @@ loans |>
   pivot_wider(names_from = Statistic, values_from = value)
 ```
 
----
 
 ## Model A — Continuous Predictor: Debt-to-Income → Interest Rate
 
@@ -280,16 +299,18 @@ additional default risk.
 loans |>
   filter(debt_to_income <= 60) |>
   ggplot(aes(x = debt_to_income, y = interest_rate)) +
-  geom_point(alpha = 0.25, color = plot_blue, size = 1.2) +
-  geom_smooth(method = "lm", color = plot_red,
-              linewidth = 1, se = TRUE, fill = plot_red, alpha = 0.15) +
+  geom_point(alpha = 0.25, color = plot_fill_brightblue, size = 1.2) +
+  geom_smooth(method = "lm", color = plot_fill_crimson,
+              linewidth = 1, se = TRUE, fill = plot_fill_crimson, alpha = 0.15) +
   labs(
     title    = "Interest Rate vs. Debt-to-Income Ratio",
     subtitle = "Each point is one loan application  |  OLS trend line with 95% band",
     x        = "Debt-to-Income Ratio (%)",
     y        = "Interest Rate (%)",
     caption  = "Loans with DTI > 60 excluded from plot for visual clarity."
-  )
+  ) +
+  theme(panel.background = element_rect(fill = plot_background, color = plot_greytext)) +
+  theme_minimal()
 ```
 
 ### Frequentist Baseline
@@ -373,9 +394,9 @@ cared about.
 #| fig-cap: "Posterior distribution of the debt-to-income slope coefficient. The bulk of the mass sits clearly above zero."
 
 ggplot(post_a, aes(x = debt_to_income)) +
-  geom_density(fill = plot_lightgrey, color = clr_dark,
-               alpha = 0.75, linewidth = 0.8) +
-  geom_vline(xintercept = 0, color = plot_red,
+  geom_density(fill = plot_fill_lightblue, color = plot_blacktext,
+               alpha = 0.4, linewidth = 0.5) +
+  geom_vline(xintercept = 0, color = plot_fill_crimson,
              linewidth = 0.9, linetype = "dashed") +
   labs(
     title    = "Posterior Distribution — DTI Slope",
@@ -383,14 +404,15 @@ ggplot(post_a, aes(x = debt_to_income)) +
     x        = "Coefficient (β)",
     y        = "Density",
     caption  = "Dashed red line marks β = 0 (null effect)."
-  )
+  ) + 
+  theme(panel.background = element_rect(fill = plot_background, color = plot_greytext)) +
+  theme_minimal()
 ```
 
 The distribution is unimodal, roughly symmetric, and sits comfortably to the
 right of zero — providing immediate visual evidence that DTI carries a
 positive effect on interest rates.
 
----
 
 ## Part A — Characterising the Posterior
 
@@ -420,26 +442,28 @@ pe_median <- median(post_a$debt_to_income)
 pe_map    <- as.numeric(map_estimate(post_a$debt_to_income))
 
 ggplot(post_a, aes(x = debt_to_income)) +
-  geom_density(fill = plot_lightgrey, color = "#6B4F0F",
-               alpha = 0.7, linewidth = 0.8) +
+  geom_density(fill = plot_fill_lightblue, color = plot_blacktext,
+               alpha = 0.5, linewidth = 0.5) +
   geom_vline(xintercept = pe_mean,
-             color = clr_dark,     linewidth = 1.1, linetype = "solid") +
+             color = plot_blacktext,     linewidth = 1, linetype = "solid") +
   geom_vline(xintercept = pe_median,
-             color = plot_beige, linewidth = 1.1, linetype = "dashed") +
+             color = plot_redtext, linewidth = 1, linetype = "dashed") +
   geom_vline(xintercept = pe_map,
-             color = plot_red,   linewidth = 1.1, linetype = "dotdash") +
+             color = plot_bluetext,   linewidth = 1, linetype = "dotdash") +
   annotate("text", x = pe_mean   - 0.003, y = 55, angle = 90,
-           label = "Mean",   size = 3, color = clr_dark) +
+           label = "Mean",   size = 3, color = plot_blacktext) +
   annotate("text", x = pe_median + 0.003, y = 55, angle = 90,
-           label = "Median", size = 3, color = plot_beige) +
+           label = "Median", size = 3, color = plot_blacktext) +
   annotate("text", x = pe_map    + 0.003, y = 40, angle = 90,
-           label = "MAP",    size = 3, color = plot_red) +
+           label = "MAP",    size = 3, color = plot_blacktext) +
   labs(
     title    = "Point Estimates on the DTI Posterior",
     subtitle = "Mean (solid), Median (dashed), MAP (dot-dash)",
     x        = "β (debt_to_income)",
     y        = "Density"
-  )
+  ) +
+  theme(panel.background = element_rect(fill = plot_background, color = plot_greytext)) +
+  theme_minimal()
 ```
 
 ::: {.callout-note icon = false}
@@ -477,8 +501,6 @@ produce more stable numerical estimates across sampling runs, and the choice
 of any threshold is inherently a convention worth questioning.
 :::
 
----
-
 ## Model B — Categorical Predictor: Homeownership → Interest Rate
 
 ### The Business Question
@@ -511,11 +533,11 @@ loans |>
 #| fig-cap: "Distribution of interest rates by homeownership status. Renters tend to receive marginally higher rates; mortgage holders cluster slightly lower."
 
 ggplot(loans, aes(x = interest_rate, fill = homeownership)) +
-  geom_density(alpha = 0.55, linewidth = 0.6) +
+  geom_density(alpha = 0.30, linewidth = 0.25) +
   scale_fill_manual(
-    values = c("RENT"     = plot_red,
-               "MORTGAGE" = plot_beige,
-               "OWN"      = plot_lightgrey),
+    values = c("RENT"     = plot_fill_beige,
+               "MORTGAGE" = plot_fill_blue,
+               "OWN"      = plot_fill_crimson),
     name = "Homeownership"
   ) +
   labs(
@@ -523,7 +545,9 @@ ggplot(loans, aes(x = interest_rate, fill = homeownership)) +
     subtitle = "Bayesian modelling will quantify the difference in posterior terms",
     x        = "Interest Rate (%)",
     y        = "Density"
-  )
+  ) + 
+  theme(panel.background = element_rect(fill = plot_background, color = plot_greytext)) +
+  theme_minimal()
 ```
 
 ### Frequentist Baseline
@@ -589,12 +613,12 @@ post_b_long <- post_b |>
                            homeownershipRENT = "RENT vs. MORTGAGE"))
 
 ggplot(post_b_long, aes(x = Estimate, fill = Contrast)) +
-  geom_density(alpha = 0.65, linewidth = 0.7) +
-  geom_vline(xintercept = 0, color = clr_dark,
+  geom_density(alpha = 0.45, linewidth = 0.5) +
+  geom_vline(xintercept = 0, color = plot_blacktext,
              linewidth = 0.9, linetype = "dashed") +
   scale_fill_manual(
-    values = c("OWN vs. MORTGAGE"  = plot_lightgrey,
-               "RENT vs. MORTGAGE" = plot_red),
+    values = c("OWN vs. MORTGAGE"  = plot_fill_lightblue,
+               "RENT vs. MORTGAGE" = plot_fill_crimson),
     name = "Contrast"
   ) +
   labs(
@@ -602,10 +626,11 @@ ggplot(post_b_long, aes(x = Estimate, fill = Contrast)) +
     subtitle = "Reference category: MORTGAGE  |  Dashed line marks zero difference",
     x        = "Rate Difference (pp)",
     y        = "Density"
-  )
+  ) +
+  theme(panel.background = element_rect(fill = plot_background, color = plot_greytext)) +
+  theme_minimal()
 ```
 
----
 
 ## Part B — Characterising the Categorical Model Posterior
 
@@ -697,7 +722,6 @@ that this effect is positive."* No repeated-sampling thought experiment
 required.
 :::
 
----
 
 ## Unified Summary: `describe_posterior()`
 
@@ -759,7 +783,7 @@ kbl(tblData) %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-## Conclusions & Risk Implications
+## Imsight & Conclusion
 
 Two lending risk questions, two Bayesian models, one consistent framework:
 
@@ -825,15 +849,17 @@ the Bayesian framework. *Journal of Open Source Software, 4*(40), 1541.
 McElreath, R. (2018). *Statistical rethinking: A Bayesian course with
 examples in R and Stan*. Chapman & Hall/CRC.
 
----
 
-## R-Session Information
+## R Session Information
+<div style="font-size: 0.8em;">
 ```{r}
-#| lable: sessionInfo
-sessionInfo()
+#| lable: session_info
+#| echo: false
+ sessionInfo() 
 ```
+</div>
 
 ---
 
 *Rendered with [Quarto](https://quarto.org/) · Packages: `bayestestR`, `dplyr`,
- `ggplot2`, `insight`, `kableExtra`, `openintro`, `rstanarm` , `scales`, `tidyr`, `tidyverse`*
+ `ggplot2`, `insight`, `kableExtra`, `openintro`, `rstanarm` , `scales`, `sessioninfo`, `tidyr`, `tidyverse`*
