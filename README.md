@@ -1,28 +1,38 @@
-# Bayesian Inference in Lending Risk
+# [Title]
 
-> Estimating Interest Rate Drivers with Posterior Distributions
-
-This project applies Bayesian inference to two lending risk questions — whether
-debt-to-income ratio drives interest rates and whether homeownership status
-produces meaningful rate differences — using the `loans_full_schema` dataset
-from the `openintro` package. Using `rstanarm` to fit the models and
-`bayestestR` to characterise the resulting posterior distributions, we
-demonstrate how credible intervals, the Region of Practical Equivalence, and
-the Probability of Direction together provide a richer and more
-decision-relevant picture of parameter uncertainty than classical frequentist
-regression. The analysis concludes that both DTI and homeownership status carry
-practically significant effects on loan pricing, and that the Bayesian
-framework — with its direct probability statements, honest uncertainty
-quantification, and business-calibrated significance tests — is particularly
-well-suited to the explainability and governance demands of modern risk model
-management.
+**Author:** Patrick Lefler  
+**Published:** 2026-03-03 
+**Project 3:** Project-09
+**Tools:** R | Quarto | Plotly | ggplot2 | kableExtra
 
 ---
 
-## Project Structure
+## Overview
+
+Traditional lending risk models rely on frequentist point estimates and p-values to assess borrower risk. This method simplifies parameter uncertainty into a binary decision. It often misses the distributional information that credit decision-makers need. When a pricing committee wonders if the debt-to-income ratio impacts interest rates, a p-value below 0.05 responds to a question that wasn't even asked. It overlooks the more relevant question: how large is the effect, and how confident can we be in that size? </br> 
+
+This project reframes two key lending risk questions using a Bayesian approach. It treats parameter uncertainty as an important output, not just a nuisance. Two Bayesian regression models are fitted using the `loans_full_schema` dataset from the `openintro` package with `rstanarm`. The first model estimates the relationship between debt-to-income ratio and interest rate. The second tests if homeownership status creates significant rate differences among borrower segments. </br> 
+
+The posterior distributions are characterized with <code> bayestestR</code>, using three diagnostic tools. First, the 89% Highest Density Interval shows parameter-level uncertainty. Second, the Region of Practical Equivalence (ROPE) checks if effects fall within a range that isn’t very important. Third, the Probability of Direction (pd) is a simple tool for measuring directional confidence. These tools replace the single-threshold logic of null hypothesis testing with a more nuanced view of the data. </br> 
+
+The results show that Bayesian summaries reveal important distinctions that frequentist outputs miss. The debt-to-income ratio consistently relates positively to interest rates. The width of the credible interval and the partial ROPE overlap show that there's significant uncertainty in the effect size. This nuance is vital for loan pricing functions. Homeownership differences show that a high Probability of Direction can happen even with small effect sizes. This challenges the usual link between statistical significance and actionability.
+
+---
+
+## Key insights
+The Bayesian framing solves the right problem for credit practitioners. The abstract and conclusion nail the core argument: a p-value answers a question no pricing committee ever asked, while a posterior distribution directly quantifies what they actually need — the plausible range and magnitude of an effect given observed data. The DTI model's 89% HDI sitting entirely outside the ROPE makes this concrete, not just philosophical. 
+
+The OWN-vs-MORTGAGE finding is the project's sharpest analytical moment. Naively, zero housing debt should signal the best credit profile, but OWN borrowers land between RENT and MORTGAGE on rates — and you call this out explicitly. The 98% ROPE overlap and pd of only 0.95 for OWN vs. MORTGAGE means the effect is directionally credible but practically negligible, which is exactly the kind of nuance that a binary significance test would flatten into "not significant" and walk away from.
+
+The three-tool diagnostic stack (HDI, ROPE, pd) is well-chosen and well-sequenced. Each tool answers a distinct question — where does the parameter sit, does the size matter for business, and how confident are we in the sign — and the describe_posterior() unified summary ties them together cleanly. The pedagogical progression from individual diagnostics to the unified table is effective for a portfolio-level audience that needs to see both the reasoning and the bottom line.
+
+One structural gap: the models are univariate by design, and acknowledging that more explicitly would strengthen the conclusions. DTI and homeownership are almost certainly correlated (mortgage holders carry housing debt that inflates DTI), so the isolated effects could shift materially in a multivariate specification. A brief note framing these as marginal-association baselines rather than causal estimates — or flagging a multivariate extension as future work — would preempt the most obvious methodological pushback from a sophisticated reader.
+
+---
+
+## Repository structure
 
 ```
-.
 ├── bayesian_lending_risk.qmd   # Main Quarto source document
 ├── bayesian_lending_risk.html  # Rendered HTML output
 |-- brand.yml  #quarto branding document
@@ -33,68 +43,46 @@ management.
 
 ---
 
-## Models
+## Reproducing the analysis
 
-| Model | Predictor | Response | Type |
-|---|---|---|---|
-| A | Debt-to-Income Ratio | Interest Rate | Continuous |
-| B | Homeownership Status | Interest Rate | Categorical |
+### Prerequisites
 
----
-
-## Key Concepts Demonstrated
-
-- Bayesian vs. frequentist regression — baseline comparison using `lm()` and `stan_glm()`
-- Posterior distribution extraction and visualisation via `get_parameters()`
-- Point estimation — mean, median, and Maximum A Posteriori (MAP)
-- Credible intervals using the 89% Highest Density Interval (HDI)
-- Region of Practical Equivalence (ROPE) — distinguishing statistical detectability from practical materiality
-- Probability of Direction (pd) — confidence in effect sign
-- Unified posterior summary with `describe_posterior()`
-- MCMC diagnostics — R̂ and Effective Sample Size (ESS)
-
----
-
-## Dataset
-
-**`loans_full_schema`** from the [`openintro`](https://cran.r-project.org/package=openintro) package.
-
-A real-world personal lending dataset sourced from Lending Club, containing
-10,000 loan applications with variables spanning borrower financials, loan
-characteristics, and credit history. The analytic sample retains complete cases
-on `interest_rate`, `debt_to_income`, and `homeownership`.
-
----
-
-## Requirements
-
-### R Packages
+R 4.3 or later with the following packages:
 
 ```r
-install.packages(c(
-  "rstanarm",
-  "bayestestR",
-  "insight",
-  "openintro",
-  "ggplot2",
-  "dplyr",
-  "tidyr"
-))
+library(bayestestR)  # Posterior description & hypothesis testing
+library(ggplot2)     # Visualisation
+library(insight)     # Uniform parameter extraction
+library(kableExtra)  # kable table
+library(openintro)   # Source of loans_full_schema
+library(rstanarm)    # Stan-backed Bayesian regression
+library(scales)  # decimal formating
+library(sessioninfo) # session information
+library(tidyr)       # Reshaping
+library(tidyverse)   # Data wrangling
+library(dplyr)       # Data wrangling
 ```
 
-> **Note:** `rstanarm` requires a working C++ toolchain and the
-> [RStan](https://mc-stan.org/rstan/) backend. See the
-> [RStan Getting Started](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started)
-> guide if you encounter installation issues.
+Quarto 1.4 or later. Install from [quarto.org](https://quarto.org).
 
-### Rendering
+## Design standards
 
-```bash
-quarto render bayesian_lending_risk.qmd
-```
+- **Theme:** Quarto Sandstone (Bootswatch)
+- **Brand:** Custom palette defined in `_brand.yml` — off-white background, dark grey text, blue/red/green accent ramps
+- **Typography:** Roboto (Google Fonts, via `_brand.yml`)
+- **Visualizations:** `ggplotly()` for density overlays, `plot_ly()` / `add_bars()` for Kelly histograms and trajectory panels
+- **Tables:** `kbl()` + `kable_styling()` with striped, hover, condensed, responsive bootstrap options
+- **No Shiny, no OJS** — document renders to a standalone HTML file that works from the filesystem or any web host
 
-Requires [Quarto](https://quarto.org/) ≥ 1.3. The document uses
-`cache: true` — Stan chains run once and are cached on subsequent renders.
+## Related projects
+
+None
+
+---
+
+## License
+
+MIT License. You are free to use, adapt, and republish this analysis with attribution.
 
 ---
 
