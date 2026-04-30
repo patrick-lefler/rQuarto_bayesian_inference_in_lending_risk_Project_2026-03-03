@@ -6,7 +6,7 @@
 
 **Published:** March 3, 2026
 
-**Rendered:**
+**Rendered:** https://patrick-lefler.github.io/rQuarto_bayesian_inference_in_lending_risk_Project_2026-03-03/
 
 ---
 
